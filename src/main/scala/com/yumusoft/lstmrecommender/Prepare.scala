@@ -107,7 +107,7 @@ object Prepare {
                   currentFile.createNewFile()
                 }
 
-                val lines = itemIds.reverse.sliding(2).map { case List(a, b) =>
+                val lines = itemIds.sliding(2).map { case List(a, b) =>
                   val line = Array.ofDim[Int](itemSet.size + 1)
                   line(itemSet.size) = b
                   line(a) = 1

@@ -61,8 +61,8 @@ object Train {
 
   private def output(nIn: Int, nOut: Int): RnnOutputLayer =
     new RnnOutputLayer.Builder()
-      .nIn(128)
-      .nOut(3525)
+      .nIn(nIn)
+      .nOut(nOut)
       .activation(Activation.SOFTMAX)
       .lossFunction(LossFunctions.LossFunction.MCXENT)
       .build()
@@ -85,7 +85,7 @@ object Train {
     //Refer to the javadoc for more detail
     //.addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("sumOut"), "lastTimeStep")
     //The inputs to the decoder will have size = size of output of last timestep of encoder (numHiddenNodes) + size of the other input to the comp graph,sumOut (feature vector size)
-    .addLayer("decoder", lstm(hiddenSize + itemTypeCount, hiddenSize), "lastTimeStep")
+    .addLayer("decoder", lstm(hiddenSize, hiddenSize), "lastTimeStep")
     .addLayer("output", output(hiddenSize, itemTypeCount) , "decoder")
     .setOutputs("output")
     .build()
@@ -108,13 +108,13 @@ object Train {
 
     log.info("Data Loaded")
 
-    val conf = net(3712, 128)
+    val conf = net(3664, 128)
     val model = new ComputationGraph(conf)
     model.init()
 
     model.setListeners(new ScoreIterationListener(1))
 
-    for (i <- 0 until c.nEpochs) {
+    for (i <- 0 to c.nEpochs) {
       log.info(s"Starting epoch $i of ${c.nEpochs}")
 
       while (trainData.hasNext) {

@@ -17,8 +17,8 @@ object DataIterators {
     val rr2 = new CSVSequenceRecordReader()
     rr2.initialize(test)
 
-    val trainIterator = new SequenceRecordReaderDataSetIterator(rr1, 32, 3712, 3712)
-    val testIterator = new SequenceRecordReaderDataSetIterator(rr2, 32, 3712, 3712)
+    val trainIterator = new SequenceRecordReaderDataSetIterator(rr1, 32, 3664, 3664)
+    val testIterator = new SequenceRecordReaderDataSetIterator(rr2, 32, 3664, 3664)
 
     (trainIterator, testIterator)
   }
