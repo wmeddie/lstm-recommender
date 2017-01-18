@@ -40,6 +40,7 @@ object Evaluate {
   def main(args: Array[String]): Unit = {
     EvaluateConfig.parse(args) match {
       case Some(config) =>
+        /*
         val model = ModelSerializer.restoreMultiLayerNetwork(config.modelName)
         val (testData, normalizer) = DataIterators.irisCsv(config.input)
         normalizer.load((1 to 4).map(j => new File(config.modelName + s".norm$j")):_*)
@@ -52,7 +53,7 @@ object Evaluate {
         }
 
         log.info(eval.stats())
-
+*/
       case _ =>
         log.error("Invalid arguments.")
     }

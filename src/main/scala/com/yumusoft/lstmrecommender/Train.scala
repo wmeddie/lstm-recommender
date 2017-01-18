@@ -70,9 +70,10 @@ object Train {
   private def net(itemTypeCount: Int, hiddenSize: Int) = new NeuralNetConfiguration.Builder()
     .weightInit(WeightInit.XAVIER)
     .learningRate(0.001)
-    .updater(Updater.SGD)
+    .updater(Updater.RMSPROP)
+    .rmsDecay(0.95)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-    .iterations(1)
+    .iterations(10)
     .seed(42)
     .graphBuilder()
     //These are the two inputs to the computation graph
@@ -83,9 +84,9 @@ object Train {
     //Create a vertex that allows the duplication of 2d input to a 3d input
     //In this case the last time step of the encoder layer (viz. 2d) is duplicated to the length of the timeseries "sumOut" which is an input to the comp graph
     //Refer to the javadoc for more detail
-    //.addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("sumOut"), "lastTimeStep")
+    .addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("itemIn"), "lastTimeStep")
     //The inputs to the decoder will have size = size of output of last timestep of encoder (numHiddenNodes) + size of the other input to the comp graph,sumOut (feature vector size)
-    .addLayer("decoder", lstm(hiddenSize, hiddenSize), "lastTimeStep")
+    .addLayer("decoder", lstm(hiddenSize, hiddenSize), "duplicateTimeStep")
     .addLayer("output", output(hiddenSize, itemTypeCount) , "decoder")
     .setOutputs("output")
     .build()
@@ -104,11 +105,11 @@ object Train {
   }
 
   private def train(c: TrainConfig): Unit = {
-    val (trainData, testData) = DataIterators.onlineRetailCsv(c.input)
+    val trainData = DataIterators.onlineRetailCsv(c.input)
 
     log.info("Data Loaded")
 
-    val conf = net(3664, 128)
+    val conf = net(trainData.inputColumns(), 128)
     val model = new ComputationGraph(conf)
     model.init()
 

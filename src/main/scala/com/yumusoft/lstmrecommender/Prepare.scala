@@ -93,7 +93,7 @@ object Prepare {
 
           items = Nil
           var count = 0
-          while (rr.hasNext) {
+          while (rr.hasNext && count < config.count) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
               if (items.size > 1 && items.size <= 30) {
@@ -102,22 +102,30 @@ object Prepare {
 
                 val itemIds: List[Int] = items.map(i => itemSet(i))
 
-                val currentFile = new File(config.outputDir + "/sessions/" + sessionId + ".csv")
-                if (!currentFile.exists()) {
-                  currentFile.createNewFile()
-                }
+                val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
+                currentInputFile.createNewFile()
+                val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
+                currentLabelFile.createNewFile()
 
-                val lines = itemIds.sliding(2).map { case List(a, b) =>
-                  val line = Array.ofDim[Int](itemSet.size + 1)
-                  line(itemSet.size) = b
+
+                val inputLines = itemIds.sliding(2).map { case List(a, b) =>
+                  val line = Array.ofDim[Int](itemSet.size)
                   line(a) = 1
                   line.mkString(",")
                 }
 
+                val labelLines = itemIds.sliding(2).map { case List(a, b) =>
+                  s"$b"
+                }
+
                 Files.write(
-                  Paths.get(currentFile.getAbsolutePath),
-                  lines.mkString("\n").getBytes(),
-                  StandardOpenOption.APPEND
+                  Paths.get(currentInputFile.getAbsolutePath),
+                  inputLines.mkString("\n").getBytes()
+                )
+
+                Files.write(
+                  Paths.get(currentLabelFile.getAbsolutePath),
+                  labelLines.mkString("\n").getBytes()
                 )
               }
 
