@@ -6,7 +6,7 @@ import org.deeplearning4j.nn.api.OptimizationAlgorithm
 import org.deeplearning4j.nn.conf.graph.rnn.{DuplicateToTimeSeriesVertex, LastTimeStepVertex}
 import org.deeplearning4j.nn.conf.inputs.InputType
 import org.deeplearning4j.nn.conf.{NeuralNetConfiguration, Updater}
-import org.deeplearning4j.nn.conf.layers.{DenseLayer, GravesLSTM, OutputLayer, RnnOutputLayer}
+import org.deeplearning4j.nn.conf.layers._
 import org.deeplearning4j.nn.graph.ComputationGraph
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.deeplearning4j.nn.weights.WeightInit
@@ -52,6 +52,12 @@ object TrainConfig {
 object Train {
   private val log = LoggerFactory.getLogger(getClass)
 
+  private def embedding(in: Int, out: Int): EmbeddingLayer =
+    new EmbeddingLayer.Builder()
+      .nIn(in)
+      .nOut(out)
+      .build()
+
   private def lstm(nIn: Int, size: Int): GravesLSTM =
     new GravesLSTM.Builder()
       .nIn(nIn)
@@ -79,15 +85,9 @@ object Train {
     //These are the two inputs to the computation graph
     .addInputs("itemIn")
     .setInputTypes(InputType.recurrent(itemTypeCount))
-    .addLayer("encoder", lstm(itemTypeCount, hiddenSize), "itemIn")
-    .addVertex("lastTimeStep", new LastTimeStepVertex("itemIn"), "encoder")
-    //Create a vertex that allows the duplication of 2d input to a 3d input
-    //In this case the last time step of the encoder layer (viz. 2d) is duplicated to the length of the timeseries "sumOut" which is an input to the comp graph
-    //Refer to the javadoc for more detail
-    .addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("itemIn"), "lastTimeStep")
-    //The inputs to the decoder will have size = size of output of last timestep of encoder (numHiddenNodes) + size of the other input to the comp graph,sumOut (feature vector size)
-    .addLayer("decoder", lstm(hiddenSize, hiddenSize), "duplicateTimeStep")
-    .addLayer("output", output(hiddenSize, itemTypeCount) , "decoder")
+    .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
+    .addLayer("lstm1", lstm(hiddenSize, hiddenSize), "embed")
+    .addLayer("output", output(hiddenSize, itemTypeCount) , "lstm1")
     .setOutputs("output")
     .build()
 
@@ -120,6 +120,8 @@ object Train {
 
       while (trainData.hasNext) {
         val ds = trainData.next()
+        log.info(ds.getFeatures.toString)
+        log.info("===============")
         model.fit(ds)
       }
 

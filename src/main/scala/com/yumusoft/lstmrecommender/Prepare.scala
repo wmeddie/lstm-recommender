@@ -109,9 +109,10 @@ object Prepare {
 
 
                 val inputLines = itemIds.sliding(2).map { case List(a, b) =>
-                  val line = Array.ofDim[Int](itemSet.size)
-                  line(a) = 1
-                  line.mkString(",")
+                  //val line = Array.ofDim[Int](itemSet.size)
+                  //line(a) = 1
+                  //line.mkString(",")
+                  s"$a"
                 }
 
                 val labelLines = itemIds.sliding(2).map { case List(a, b) =>
