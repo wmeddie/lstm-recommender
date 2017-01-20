@@ -19,6 +19,6 @@ object DataIterators {
     //val featuresIterator = new SequenceRecordReaderDataSetIterator(rr1, 1, 3713, 1)
     //val labelsIterator = new SequenceRecordReaderDataSetIterator(rr2, 1, 3713, 1)
 
-    new SequenceRecordReaderDataSetIterator(rr1, rr2, 1, 3713, false)
+    new SequenceRecordReaderDataSetIterator(rr1, rr2, 32, 3901, false)
   }
 }

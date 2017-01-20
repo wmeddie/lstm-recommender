@@ -15,7 +15,8 @@ import scala.collection.immutable.{HashMap, TreeSet}
 case class PrepareConfig(
   input: File = null,
   outputDir: String = "",
-  count: Int = 0
+  count: Int = 0,
+  length: Int = 32
 )
 
 object PrepareConfig {
@@ -37,6 +38,10 @@ object PrepareConfig {
     opt[Int]('c', "count")
       .action( (x, c) => c.copy(count = x) )
       .text("Optional number of sequences to output.  Default is whole file.")
+
+    opt[Int]('l', "length")
+      .action( (x, c) => c.copy(length = x) )
+      .text("Length of sequences. (All files will be padded to this length.)")
   }
 
   def parse(args: Array[String]): Option[PrepareConfig] = {
@@ -47,6 +52,9 @@ object PrepareConfig {
 object Prepare {
   private val log = LoggerFactory.getLogger(getClass)
 
+  private val START = "<start>"
+  private val END = "<end>"
+
   def main(args: Array[String]): Unit = {
     PrepareConfig.parse(args) match {
       case Some(config) =>
@@ -55,29 +63,31 @@ object Prepare {
         } else {
           log.info("Processing file")
 
-          val rr = new CSVRecordReader()
+          val rr = new CSVRecordReader(1, ",")
           rr.initialize(new InputStreamInputSplit(new FileInputStream(config.input)))
 
           var itemSet = new HashMap[String, Int]()
-          var lastItemId = 0
+          itemSet += (START -> 0)
+          itemSet += (END -> 1)
+          var nextItemId = 2
 
           var sessionId: String = ""
-          var items: List[String] = Nil
+          var items: List[String] = List(START)
           while (rr.hasNext) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
               if (items.size > 1 && items.size <= 30) {
                 var itemIds: List[Int] = Nil
-                for (item <- items) {
+                for (item <- items.reverse) {
                   if (!itemSet.contains(item)) {
-                    itemSet = itemSet + (item -> lastItemId)
-                    lastItemId += 1
+                    itemSet = itemSet + (item -> nextItemId)
+                    nextItemId += 1
                   }
                   itemIds = itemSet(item) :: itemIds
                 }
               }
 
-              items = Nil
+              items = List(START)
               sessionId = row.get(0).toString
             }
 
@@ -87,19 +97,21 @@ object Prepare {
             }
           }
 
+          rr.reset()
           rr.initialize(new InputStreamInputSplit(new FileInputStream(config.input)))
 
           new File(config.outputDir + "/sessions/").mkdirs()
 
-          items = Nil
+          items = List(START)
           var count = 0
           while (rr.hasNext && count < config.count) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
-              if (items.size > 1 && items.size <= 30) {
+              if (items.size > 1 && items.size < config.length) {
                 count += 1
                 log.info(s"Writing session $count with ${items.size} items.")
 
+                items = items.reverse.padTo(config.length, END)
                 val itemIds: List[Int] = items.map(i => itemSet(i))
 
                 val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
@@ -130,7 +142,7 @@ object Prepare {
                 )
               }
 
-              items = Nil
+              items = List(START)
               sessionId = row.get(0).toString
             }
 

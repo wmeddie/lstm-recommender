@@ -109,7 +109,7 @@ object Train {
 
     log.info("Data Loaded")
 
-    val conf = net(trainData.inputColumns(), 128)
+    val conf = net(3901, 64)
     val model = new ComputationGraph(conf)
     model.init()
 
@@ -120,8 +120,8 @@ object Train {
 
       while (trainData.hasNext) {
         val ds = trainData.next()
-        log.info(ds.getFeatures.toString)
-        log.info("===============")
+        //log.info(ds.getFeatures.toString)
+        //log.info("===============")
         model.fit(ds)
       }
 
