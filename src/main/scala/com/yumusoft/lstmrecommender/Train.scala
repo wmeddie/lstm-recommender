@@ -22,7 +22,8 @@ case class TrainConfig(
   dict: File = null,
   modelName: String = "",
   nEpochs: Int = 1,
-  hiddenSize: Int = 128
+  hiddenSize: Int = 128,
+  count: Int = 100
 )
 
 object TrainConfig {
@@ -54,6 +55,11 @@ object TrainConfig {
       .valueName("<modelName>")
       .action( (x, c) => c.copy(modelName = x) )
       .text("Name of trained model file.")
+
+    opt[Int]('c', "count")
+      .valueName("<count>")
+      .action( (x, c) => c.copy(count = x) )
+      .text("Number of examples to train on. 0.8 split")
   }
 
   def parse(args: Array[String]): Option[TrainConfig] = {
@@ -125,12 +131,12 @@ object Train {
   }
 
   private def train(c: TrainConfig): Unit = {
-    val (numClasses, trainData) = DataIterators.onlineRetailCsv(c.input, c.dict, 1, 200)
-    val (_, testData) = DataIterators.onlineRetailCsv(c.input, c.dict, 201, 300)
+    val (numClasses, trainData) = DataIterators.onlineRetailCsv(c.input, c.dict, 1, (c.count * 0.8).toInt)
+    val (_, testData) = DataIterators.onlineRetailCsv(c.input, c.dict, (c.count * 0.8 + 1).toInt, c.count)
 
     log.info("Data Loaded")
 
-    val conf = net(numClasses, 128)
+    val conf = net(numClasses, c.hiddenSize)
     val model = new ComputationGraph(conf)
     model.init()
 
@@ -143,13 +149,12 @@ object Train {
       log.info(s"Finished epoch $i")
       trainData.reset()
 
-      val eval = model.evaluate(testData, null, 10)
+      val eval = model.evaluate(testData, null, 20)
       log.info(eval.stats())
       testData.reset()
     }
 
     ModelSerializer.writeModel(model, c.modelName, true)
 
-    log.info(s"Model saved to: ${c.modelName}")
-  }
+    log.info(s"Model saved to: ${c.modelName}")  }
 }
