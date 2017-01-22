@@ -19,8 +19,10 @@ import scopt.OptionParser
 
 case class TrainConfig(
   input: File = null,
+  dict: File = null,
   modelName: String = "",
-  nEpochs: Int = 1
+  nEpochs: Int = 1,
+  hiddenSize: Int = 128
 )
 
 object TrainConfig {
@@ -33,9 +35,19 @@ object TrainConfig {
       .action( (x, c) => c.copy(input = x) )
       .text("The file with training data.")
 
+    opt[File]('d', "dict")
+      .required()
+      .valueName("<dictFile>")
+      .action( (x, c) => c.copy(dict = x))
+      .text("The path to the items.csv dictionary.")
+
     opt[Int]('e', "epoch")
       .action( (x, c) => c.copy(nEpochs = x) )
       .text("Number of times to go over whole training set.")
+
+    opt[Int]('h', "hidden")
+      .action( (x, c) => c.copy(hiddenSize = x) )
+      .text("The size of the hidden layers.")
 
     opt[String]('o', "output")
       .required()
@@ -113,11 +125,12 @@ object Train {
   }
 
   private def train(c: TrainConfig): Unit = {
-    val trainData = DataIterators.onlineRetailCsv(c.input)
+    val (numClasses, trainData) = DataIterators.onlineRetailCsv(c.input, c.dict, 1, 200)
+    val (_, testData) = DataIterators.onlineRetailCsv(c.input, c.dict, 201, 300)
 
     log.info("Data Loaded")
 
-    val conf = net(4013, 128)
+    val conf = net(numClasses, 128)
     val model = new ComputationGraph(conf)
     model.init()
 
@@ -125,16 +138,13 @@ object Train {
 
     for (i <- 0 to c.nEpochs) {
       log.info(s"Starting epoch $i of ${c.nEpochs}")
-
-      while (trainData.hasNext) {
-        val ds = trainData.next()
-        //log.info(ds.getFeatures.toString)
-        //log.info("===============")
-        model.fit(ds)
-      }
+      model.fit(trainData)
 
       log.info(s"Finished epoch $i")
       trainData.reset()
+
+      val eval = model.evaluate(testData, null, 10)
+      log.info(eval.stats())
     }
 
     ModelSerializer.writeModel(model, c.modelName, true)
