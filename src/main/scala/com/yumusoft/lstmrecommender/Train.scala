@@ -145,6 +145,7 @@ object Train {
 
       val eval = model.evaluate(testData, null, 10)
       log.info(eval.stats())
+      testData.reset()
     }
 
     ModelSerializer.writeModel(model, c.modelName, true)
