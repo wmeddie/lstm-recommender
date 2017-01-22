@@ -67,12 +67,12 @@ object Prepare {
           rr.initialize(new InputStreamInputSplit(new FileInputStream(config.input)))
 
           var itemSet = new HashMap[String, Int]()
-          itemSet += (START -> 0)
-          itemSet += (END -> 1)
-          var nextItemId = 2
+          //itemSet += (START -> 0)
+          itemSet += (END -> 0)
+          var nextItemId = 1
 
           var sessionId: String = ""
-          var items: List[String] = List(START)
+          var items: List[String] = Nil
           while (rr.hasNext) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
@@ -87,7 +87,7 @@ object Prepare {
                 }
               }
 
-              items = List(START)
+              items = Nil
               sessionId = row.get(0).toString
             }
 
@@ -102,7 +102,7 @@ object Prepare {
 
           new File(config.outputDir + "/sessions/").mkdirs()
 
-          items = List(START)
+          items = Nil
           var count = 0
           while (rr.hasNext && count < config.count) {
             val row = rr.next()
@@ -142,7 +142,7 @@ object Prepare {
                 )
               }
 
-              items = List(START)
+              items = Nil
               sessionId = row.get(0).toString
             }
 
