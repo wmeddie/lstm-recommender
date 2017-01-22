@@ -13,12 +13,12 @@ object DataIterators {
   def onlineRetailCsv(f: File): SequenceRecordReaderDataSetIterator = {
 
     val rr1 = new CSVSequenceRecordReader()
-    rr1.initialize(new NumberedFileInputSplit(f.getAbsolutePath + "/Input_%d.csv", 1, 100))
+    rr1.initialize(new NumberedFileInputSplit(f.getAbsolutePath + "/Input_%d.csv", 1, 2000))
     val rr2 = new CSVSequenceRecordReader()
-    rr2.initialize(new NumberedFileInputSplit(f.getAbsolutePath + "/Label_%d.csv", 1, 100))
+    rr2.initialize(new NumberedFileInputSplit(f.getAbsolutePath + "/Label_%d.csv", 1, 2000))
     //val featuresIterator = new SequenceRecordReaderDataSetIterator(rr1, 1, 3713, 1)
     //val labelsIterator = new SequenceRecordReaderDataSetIterator(rr2, 1, 3713, 1)
 
-    new SequenceRecordReaderDataSetIterator(rr1, rr2, 32, 3901, false)
+    new SequenceRecordReaderDataSetIterator(rr1, rr2, 128, 4013, false)
   }
 }

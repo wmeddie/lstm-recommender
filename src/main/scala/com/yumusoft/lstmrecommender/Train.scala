@@ -58,6 +58,13 @@ object Train {
       .nOut(out)
       .build()
 
+  private def dense(in: Int, out: Int): DenseLayer =
+    new DenseLayer.Builder()
+      .nIn(in)
+      .nOut(out)
+      .activation("relu")
+      .build()
+
   private def lstm(nIn: Int, size: Int): GravesLSTM =
     new GravesLSTM.Builder()
       .nIn(nIn)
@@ -87,7 +94,8 @@ object Train {
     .setInputTypes(InputType.recurrent(itemTypeCount))
     .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
     .addLayer("lstm1", lstm(hiddenSize, hiddenSize), "embed")
-    .addLayer("output", output(hiddenSize, itemTypeCount) , "lstm1")
+    .addLayer("dense", dense(hiddenSize, hiddenSize), "lstm1")
+    .addLayer("output", output(hiddenSize, itemTypeCount) , "dense")
     .setOutputs("output")
     .build()
 
@@ -109,7 +117,7 @@ object Train {
 
     log.info("Data Loaded")
 
-    val conf = net(3901, 64)
+    val conf = net(4013, 128)
     val model = new ComputationGraph(conf)
     model.init()
 

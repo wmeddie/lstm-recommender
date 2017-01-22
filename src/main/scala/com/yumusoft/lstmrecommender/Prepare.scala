@@ -76,7 +76,7 @@ object Prepare {
           while (rr.hasNext) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
-              if (items.size > 1 && items.size <= 30) {
+              if (items.size > 1 && items.size <= config.length) {
                 var itemIds: List[Int] = Nil
                 for (item <- items.reverse) {
                   if (!itemSet.contains(item)) {
