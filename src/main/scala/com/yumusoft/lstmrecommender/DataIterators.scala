@@ -30,6 +30,15 @@ object DataIterators {
 
     val numClasses = last.get(1).toInt
 
-    (numClasses, new SequenceRecordReaderDataSetIterator(rr1, rr2, 128, numClasses, false))
+    val iter = new SequenceRecordReaderDataSetIterator(
+      rr1,
+      rr2,
+      32,
+      numClasses,
+      false,
+      SequenceRecordReaderDataSetIterator.AlignmentMode.ALIGN_END
+    )
+
+    (numClasses, iter)
   }
 }

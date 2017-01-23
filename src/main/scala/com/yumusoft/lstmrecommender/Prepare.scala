@@ -111,7 +111,10 @@ object Prepare {
                 count += 1
                 log.info(s"Writing session $count with ${items.size} items.")
 
-                items = items.reverse.padTo(config.length, END)
+                //items = items.reverse.padTo(config.length, END)
+                //items = END :: items
+                items = items.reverse
+
                 val itemIds: List[Int] = items.map(i => itemSet(i))
 
                 val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
