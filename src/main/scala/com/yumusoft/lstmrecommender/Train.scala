@@ -19,7 +19,6 @@ import scopt.OptionParser
 
 case class TrainConfig(
   input: File = null,
-  dict: File = null,
   modelName: String = "",
   nEpochs: Int = 1,
   hiddenSize: Int = 128,
@@ -32,15 +31,9 @@ object TrainConfig {
 
     opt[File]('i', "input")
       .required()
-      .valueName("<file>")
+      .valueName("<dir>")
       .action( (x, c) => c.copy(input = x) )
-      .text("The file with training data.")
-
-    opt[File]('d', "dict")
-      .required()
-      .valueName("<dictFile>")
-      .action( (x, c) => c.copy(dict = x))
-      .text("The path to the items.csv dictionary.")
+      .text("The directory with training data.")
 
     opt[Int]('e', "epoch")
       .action( (x, c) => c.copy(nEpochs = x) )
@@ -80,7 +73,7 @@ object Train {
     new DenseLayer.Builder()
       .nIn(in)
       .nOut(out)
-      .activation("relu")
+      .activation(Activation.LEAKYRELU)
       .build()
 
   private def lstm(nIn: Int, size: Int): GravesLSTM =
@@ -98,7 +91,7 @@ object Train {
       .lossFunction(LossFunctions.LossFunction.MCXENT)
       .build()
 
-  private def net(itemTypeCount: Int, hiddenSize: Int) = new NeuralNetConfiguration.Builder()
+  private def net(itemTypeCount: Int, countryTypeCount: Int, hiddenSize: Int) = new NeuralNetConfiguration.Builder()
     .weightInit(WeightInit.XAVIER)
     .learningRate(0.001)
     .updater(Updater.RMSPROP)
@@ -107,14 +100,14 @@ object Train {
     .iterations(10)
     .seed(42)
     .graphBuilder()
-    //These are the two inputs to the computation graph
-    .addInputs("itemIn")
-    .setInputTypes(InputType.recurrent(itemTypeCount))
-    .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
-    .addLayer("lstm1", lstm(hiddenSize, hiddenSize), "embed")
+    .addInputs("itemIn", "countryIn")
+    .setInputTypes(InputType.recurrent(itemTypeCount), InputType.recurrent(countryTypeCount))
+    .addLayer("embed", embedding(itemTypeCount, 100), "itemIn")
+    .addLayer("country", embedding(countryTypeCount, 3), "countryIn")
+    .addLayer("lstm1", lstm(100 + 3, hiddenSize), "embed", "country")
     .addLayer("dense", dense(hiddenSize, hiddenSize), "lstm1")
-    .addLayer("output", output(hiddenSize, itemTypeCount) , "dense")
-    .setOutputs("output")
+    .addLayer("labelOut", output(hiddenSize, itemTypeCount) , "dense")
+    .setOutputs("labelOut")
     .build()
 
   def main(args: Array[String]): Unit = {
@@ -131,12 +124,28 @@ object Train {
   }
 
   private def train(c: TrainConfig): Unit = {
-    val (numClasses, trainData) = DataIterators.onlineRetailCsv(c.input, c.dict, 1, (c.count * 0.8).toInt)
-    val (_, testData) = DataIterators.onlineRetailCsv(c.input, c.dict, (c.count * 0.8 + 1).toInt, c.count)
+    val sessionsDir = new File(c.input.getAbsolutePath + "/sessions/")
+    val itemMapFile = new File(c.input.getAbsolutePath + "/items.csv")
+    val countryMapFile = new File(c.input.getAbsolutePath + "/countries.csv")
+
+    val (numClasses, numCountries, trainData) = DataIterators.onlineRetailCsv(
+      sessionsDir,
+      itemMapFile,
+      countryMapFile,
+      1,
+      (c.count * 0.8).toInt
+    )
+    val (_, _, testData) = DataIterators.onlineRetailCsv(
+      sessionsDir,
+      itemMapFile,
+      countryMapFile,
+      (c.count * 0.8 + 1).toInt,
+      c.count
+    )
 
     log.info("Data Loaded")
 
-    val conf = net(numClasses, c.hiddenSize)
+    val conf = net(numClasses, numCountries, c.hiddenSize)
     val model = new ComputationGraph(conf)
     model.init()
 
@@ -149,9 +158,9 @@ object Train {
       log.info(s"Finished epoch $i")
       trainData.reset()
 
-      val eval = model.evaluate(testData, null, 20)
-      log.info(eval.stats())
-      testData.reset()
+      //val eval = model.evaluate(testData, null, 20)
+      //log.info(eval.stats())
+      //testData.reset()
     }
 
     ModelSerializer.writeModel(model, c.modelName, true)

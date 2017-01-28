@@ -68,8 +68,11 @@ object Prepare {
 
           var itemSet = new HashMap[String, Int]()
           //itemSet += (START -> 0)
-          itemSet += (END -> 0)
+          //itemSet += (END -> 0)
           var nextItemId = 1
+
+          var countrySet = new HashMap[String, Int]()
+          var nextCountryId = 1
 
           var sessionId: String = ""
           var items: List[String] = Nil
@@ -77,13 +80,18 @@ object Prepare {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
               if (items.size > 1 && items.size <= config.length) {
-                var itemIds: List[Int] = Nil
                 for (item <- items.reverse) {
                   if (!itemSet.contains(item)) {
-                    itemSet = itemSet + (item -> nextItemId)
+                    itemSet += (item -> nextItemId)
                     nextItemId += 1
                   }
-                  itemIds = itemSet(item) :: itemIds
+
+
+                  val country = row.get(row.size() - 1).toString
+                  if (!countrySet.contains(country)) {
+                    countrySet += (country -> nextCountryId)
+                    nextCountryId += 1
+                  }
                 }
               }
 
@@ -93,7 +101,7 @@ object Prepare {
 
             val item = row.get(2).toString.trim.replace(",", "").replace("\"", "").replace("'", "")
             if (item.length >  0 && item.length < 100) {
-              items = item :: items
+              items ::= item
             }
           }
 
@@ -102,41 +110,38 @@ object Prepare {
 
           new File(config.outputDir + "/sessions/").mkdirs()
 
-          items = Nil
+          var rows: List[(String, String)] = Nil
+
           var count = 0
           while (rr.hasNext && count < config.count) {
             val row = rr.next()
             if (row.get(0).toString != sessionId) {
-              if (items.size > 1 && items.size < config.length) {
+              if (rows.size > 1 && rows.size < config.length) {
                 count += 1
                 log.info(s"Writing session $count with ${items.size} items.")
 
-                //items = items.reverse.padTo(config.length, END)
-                //items = END :: items
-                items = items.reverse
+                val rowIds = rows.reverse.map { case (i, c) => (itemSet(i), countrySet(c)) }
 
-                val itemIds: List[Int] = items.map(i => itemSet(i))
-
-                val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
+                val currentInputFile = new File(config.outputDir + "/sessions/Input_Item" + count + ".csv")
                 currentInputFile.createNewFile()
+                val currentCountryFile = new File(config.outputDir + "/sessions/Input_Country" + count + ".csv")
+                currentCountryFile.createNewFile()
                 val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
                 currentLabelFile.createNewFile()
 
 
-                val inputLines = itemIds.sliding(2).map { case List(a, b) =>
-                  //val line = Array.ofDim[Int](itemSet.size)
-                  //line(a) = 1
-                  //line.mkString(",")
-                  s"$a"
-                }
-
-                val labelLines = itemIds.sliding(2).map { case List(a, b) =>
-                  s"$b"
-                }
+                val inputLines = rowIds.sliding(2).map { case List(a, b) => s"${a._1}" }
+                val countryLines = rowIds.sliding(2).map { case List(a, b) => s"${a._2}"}
+                val labelLines = rowIds.sliding(2).map { case List(a, b) => s"${b._1}" }
 
                 Files.write(
                   Paths.get(currentInputFile.getAbsolutePath),
                   inputLines.mkString("\n").getBytes()
+                )
+
+                Files.write(
+                  Paths.get(currentCountryFile.getAbsolutePath),
+                  countryLines.mkString("\n").getBytes
                 )
 
                 Files.write(
@@ -145,13 +150,14 @@ object Prepare {
                 )
               }
 
-              items = Nil
+              rows = Nil
               sessionId = row.get(0).toString
             }
 
             val item = row.get(2).toString.trim.replace(",", "").replace("\"", "").replace("'", "")
+            val country = row.get(row.size() - 1).toString
             if (item.length > 0 && item.length < 100) {
-              items = item :: items
+              rows ::= (item, country)
             }
           }
 
@@ -163,6 +169,13 @@ object Prepare {
             itemOut.println(s"$desc,$index")
           }
           itemOut.close()
+
+          val countryFile = new File(config.outputDir + "/countries.csv")
+          val countryOut = new PrintWriter(new BufferedWriter(new FileWriter(countryFile, true)))
+          countrySet.toSeq.sortBy { case (_, countryId) => countryId }.foreach { case (country, index) =>
+            countryOut.println(s"$country,$index")
+          }
+          countryOut.close()
 
           log.info("Processing finished.")
         }
