@@ -2,7 +2,9 @@ package com.yumusoft.lstmrecommender
 
 import java.io.File
 
+import org.deeplearning4j.eval.Evaluation
 import org.deeplearning4j.nn.api.OptimizationAlgorithm
+import org.deeplearning4j.nn.api.layers.IOutputLayer
 import org.deeplearning4j.nn.conf.graph.rnn.{DuplicateToTimeSeriesVertex, LastTimeStepVertex}
 import org.deeplearning4j.nn.conf.inputs.InputType
 import org.deeplearning4j.nn.conf.{NeuralNetConfiguration, Updater}
@@ -13,6 +15,7 @@ import org.deeplearning4j.nn.weights.WeightInit
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
 import org.deeplearning4j.util.ModelSerializer
 import org.nd4j.linalg.activations.Activation
+import org.nd4j.linalg.dataset.api.iterator.MultiDataSetIterator
 import org.nd4j.linalg.lossfunctions.LossFunctions
 import org.slf4j.LoggerFactory
 import scopt.OptionParser
@@ -93,11 +96,11 @@ object Train {
 
   private def net(itemTypeCount: Int, countryTypeCount: Int, hiddenSize: Int) = new NeuralNetConfiguration.Builder()
     .weightInit(WeightInit.XAVIER)
-    .learningRate(0.001)
+    .learningRate(0.01)
     .updater(Updater.RMSPROP)
     .rmsDecay(0.95)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-    .iterations(10)
+    .iterations(1)
     .seed(42)
     .graphBuilder()
     .addInputs("itemIn", "countryIn")
@@ -158,12 +161,27 @@ object Train {
       log.info(s"Finished epoch $i")
       trainData.reset()
 
-      //val eval = model.evaluate(testData, null, 20)
-      //log.info(eval.stats())
-      //testData.reset()
+      val eval = evaluate(model, testData)
+      log.info(eval.stats())
+      testData.reset()
     }
 
     ModelSerializer.writeModel(model, c.modelName, true)
 
-    log.info(s"Model saved to: ${c.modelName}")  }
+    log.info(s"Model saved to: ${c.modelName}")
+  }
+
+  def evaluate(model: ComputationGraph, iterator: MultiDataSetIterator, topN: Int = 20): Evaluation = {
+    val e = new Evaluation(null, topN)
+
+    while (iterator.hasNext) {
+      val next = iterator.next()
+      val features = next.getFeatures
+      val labels = next.getLabels
+      var out = model.output(false, features :_*)
+      e.evalTimeSeries(labels(0), out(0))
+    }
+
+    e
+  }
 }
