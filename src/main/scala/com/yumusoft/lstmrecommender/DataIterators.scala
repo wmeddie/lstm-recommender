@@ -33,7 +33,7 @@ object DataIterators {
       last = itemDicReader.next()
     }
 
-    val numClasses = last.get(1).toInt
+    val numClasses = last.get(1).toInt + 1
 
     val countryDicReader = new CSVRecordReader(0, ",")
     countryDicReader.initialize(new FileSplit(countryDic))
@@ -42,7 +42,7 @@ object DataIterators {
     while (countryDicReader.hasNext) {
       last = countryDicReader.next()
     }
-    val numCountries = last.get(1).toInt
+    val numCountries = last.get(1).toInt + 1
 
     val iter = new RecordReaderMultiDataSetIterator.Builder(16)
       .addSequenceReader("itemIn", itemReader)
