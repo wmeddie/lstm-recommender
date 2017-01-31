@@ -44,7 +44,7 @@ object DataIterators {
     }
     val numCountries = last.get(1).toInt + 1
 
-    val iter = new RecordReaderMultiDataSetIterator.Builder(16)
+    val iter = new RecordReaderMultiDataSetIterator.Builder(512)
       .addSequenceReader("itemIn", itemReader)
       .addSequenceReader("countryIn", countryReader)
       .addSequenceReader("labelOut", labelReader)

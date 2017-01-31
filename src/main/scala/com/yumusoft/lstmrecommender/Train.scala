@@ -154,17 +154,17 @@ object Train {
 
     model.setListeners(new ScoreIterationListener(1))
 
-    for (i <- 0 to c.nEpochs) {
+    for (i <- 0 until c.nEpochs) {
       log.info(s"Starting epoch $i of ${c.nEpochs}")
       model.fit(trainData)
 
       log.info(s"Finished epoch $i")
       trainData.reset()
-
-      val eval = evaluate(model, testData)
-      log.info(eval.stats())
-      testData.reset()
     }
+
+    
+    val eval = evaluate(model, testData)
+    log.info(eval.stats())
 
     ModelSerializer.writeModel(model, c.modelName, true)
 
