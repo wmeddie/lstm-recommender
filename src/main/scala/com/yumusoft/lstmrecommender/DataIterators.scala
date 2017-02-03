@@ -3,7 +3,7 @@ package com.yumusoft.lstmrecommender
 import java.io.File
 import java.util
 
-import org.datavec.api.records.reader.impl.csv.{CSVRecordReader, CSVSequenceRecordReader}
+import org.datavec.api.records.reader.impl.csv.{CSVNLinesSequenceRecordReader, CSVRecordReader, CSVSequenceRecordReader}
 import org.datavec.api.split.{FileSplit, NumberedFileInputSplit}
 import org.datavec.api.transform.schema.Schema
 import org.datavec.api.writable.Writable
@@ -17,10 +17,10 @@ object DataIterators {
       : (Int, Int, RecordReaderMultiDataSetIterator) = {
 
     val itemReader = new CSVSequenceRecordReader()
-    itemReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_Item%d.csv", start, end))
+    itemReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
 
     val countryReader = new CSVSequenceRecordReader()
-    countryReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_Country%d.csv", start, end))
+    countryReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
 
     val labelReader = new CSVSequenceRecordReader()
     labelReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Label_%d.csv", start, end))
@@ -38,18 +38,19 @@ object DataIterators {
     val countryDicReader = new CSVRecordReader(0, ",")
     countryDicReader.initialize(new FileSplit(countryDic))
 
+    new CSVNLinesSequenceRecordReader()
     last = countryDicReader.next()
     while (countryDicReader.hasNext) {
       last = countryDicReader.next()
     }
     val numCountries = last.get(1).toInt + 1
 
-    val iter = new RecordReaderMultiDataSetIterator.Builder(512)
+    val iter = new RecordReaderMultiDataSetIterator.Builder(3)
       .addSequenceReader("itemIn", itemReader)
       .addSequenceReader("countryIn", countryReader)
       .addSequenceReader("labelOut", labelReader)
-      .addInput("itemIn")
-      .addInput("countryIn")
+      .addInput("itemIn", 0, 0)
+      .addInput("countryIn", 1, 1)
       .addOutputOneHot("labelOut", 0, numClasses)
       .sequenceAlignmentMode(RecordReaderMultiDataSetIterator.AlignmentMode.ALIGN_END)
       .build()

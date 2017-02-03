@@ -118,30 +118,22 @@ object Prepare {
             if (row.get(0).toString != sessionId) {
               if (rows.size > 1 && rows.size < config.length) {
                 count += 1
-                log.info(s"Writing session $count with ${items.size} items.")
+                log.info(s"Writing session $count with ${rows.size} items.")
 
                 val rowIds = rows.reverse.map { case (i, c) => (itemSet(i), countrySet(c)) }
 
-                val currentInputFile = new File(config.outputDir + "/sessions/Input_Item" + count + ".csv")
+                val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
                 currentInputFile.createNewFile()
-                val currentCountryFile = new File(config.outputDir + "/sessions/Input_Country" + count + ".csv")
-                currentCountryFile.createNewFile()
                 val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
                 currentLabelFile.createNewFile()
 
 
-                val inputLines = rowIds.sliding(2).map { case List(a, b) => s"${a._1}" }
-                val countryLines = rowIds.sliding(2).map { case List(a, b) => s"${a._2}"}
+                val inputLines = rowIds.sliding(2).map { case List(a, b) => s"${a._1},${a._2}" }
                 val labelLines = rowIds.sliding(2).map { case List(a, b) => s"${b._1}" }
 
                 Files.write(
                   Paths.get(currentInputFile.getAbsolutePath),
                   inputLines.mkString("\n").getBytes()
-                )
-
-                Files.write(
-                  Paths.get(currentCountryFile.getAbsolutePath),
-                  countryLines.mkString("\n").getBytes
                 )
 
                 Files.write(

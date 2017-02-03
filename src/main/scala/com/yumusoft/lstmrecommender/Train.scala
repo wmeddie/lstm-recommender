@@ -86,6 +86,12 @@ object Train {
       .activation(Activation.SOFTSIGN)
       .build()
 
+  private def batchNorm(in: Int, out: Int): BatchNormalization =
+    new BatchNormalization.Builder()
+      .nIn(in)
+      .nOut(out)
+      .build()
+
   private def output(nIn: Int, nOut: Int): RnnOutputLayer =
     new RnnOutputLayer.Builder()
       .nIn(nIn)
@@ -100,16 +106,18 @@ object Train {
     .updater(Updater.RMSPROP)
     .rmsDecay(0.95)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-    .iterations(1)
+    .iterations(10)
     .seed(42)
     .graphBuilder()
     .addInputs("itemIn", "countryIn")
     .setInputTypes(InputType.recurrent(itemTypeCount), InputType.recurrent(countryTypeCount))
-    .addLayer("embed", embedding(itemTypeCount, 100), "itemIn")
-    .addLayer("country", embedding(countryTypeCount, 3), "countryIn")
-    .addLayer("lstm1", lstm(100 + 3, hiddenSize), "embed", "country")
-    .addLayer("dense", dense(hiddenSize, hiddenSize), "lstm1")
-    .addLayer("labelOut", output(hiddenSize, itemTypeCount) , "dense")
+    .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
+    .addLayer("country", embedding(countryTypeCount, hiddenSize / 10), "countryIn")
+    .addLayer("lstm1", lstm(hiddenSize + (hiddenSize / 10), hiddenSize), "embed", "country")
+    .addLayer("lstm2", lstm(hiddenSize, hiddenSize), "lstm1")
+    .addLayer("dense", dense(hiddenSize * 2, hiddenSize), "lstm1", "lstm2")
+    .addLayer("bn", batchNorm(hiddenSize, hiddenSize), "dense")
+    .addLayer("labelOut", output(hiddenSize, itemTypeCount) , "bn")
     .setOutputs("labelOut")
     .build()
 
