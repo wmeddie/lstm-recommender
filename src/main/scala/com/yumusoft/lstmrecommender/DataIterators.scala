@@ -17,13 +17,24 @@ object DataIterators {
       : (Int, Int, RecordReaderMultiDataSetIterator) = {
 
     val itemReader = new CSVSequenceRecordReader()
-    itemReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    //itemReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    itemReader.initialize(new ShufflingNumberedFileInputSplit(42, dir.getAbsolutePath + "/Input_%d.csv", start, end))
 
     val countryReader = new CSVSequenceRecordReader()
-    countryReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    countryReader.initialize(new ShufflingNumberedFileInputSplit(42, dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    //countryReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
+
+    val monthReader = new CSVSequenceRecordReader()
+    monthReader.initialize(new ShufflingNumberedFileInputSplit(42, dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    //monthReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
+
+    val weekdayReader = new CSVSequenceRecordReader()
+    weekdayReader.initialize(new ShufflingNumberedFileInputSplit(42, dir.getAbsolutePath + "/Input_%d.csv", start, end))
+    //weekdayReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Input_%d.csv", start, end))
 
     val labelReader = new CSVSequenceRecordReader()
-    labelReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Label_%d.csv", start, end))
+    labelReader.initialize(new ShufflingNumberedFileInputSplit(42, dir.getAbsolutePath + "/Label_%d.csv", start, end))
+    //labelReader.initialize(new NumberedFileInputSplit(dir.getAbsolutePath + "/Label_%d.csv", start, end))
 
     val itemDicReader = new CSVRecordReader(0, ",")
     itemDicReader.initialize(new FileSplit(itemDic))
@@ -38,19 +49,22 @@ object DataIterators {
     val countryDicReader = new CSVRecordReader(0, ",")
     countryDicReader.initialize(new FileSplit(countryDic))
 
-    new CSVNLinesSequenceRecordReader()
     last = countryDicReader.next()
     while (countryDicReader.hasNext) {
       last = countryDicReader.next()
     }
     val numCountries = last.get(1).toInt + 1
 
-    val iter = new RecordReaderMultiDataSetIterator.Builder(3)
+    val iter = new RecordReaderMultiDataSetIterator.Builder(400)
       .addSequenceReader("itemIn", itemReader)
       .addSequenceReader("countryIn", countryReader)
+      .addSequenceReader("monthIn", monthReader)
+      .addSequenceReader("weekdayIn", weekdayReader)
       .addSequenceReader("labelOut", labelReader)
       .addInput("itemIn", 0, 0)
       .addInput("countryIn", 1, 1)
+      .addInputOneHot("monthIn", 2, 12)
+      .addInputOneHot("weekdayIn", 3, 7)
       .addOutputOneHot("labelOut", 0, numClasses)
       .sequenceAlignmentMode(RecordReaderMultiDataSetIterator.AlignmentMode.ALIGN_END)
       .build()

@@ -1,6 +1,7 @@
 package com.yumusoft.lstmrecommender
 
 import java.io.File
+import java.nio.file.{Files, Paths}
 
 import org.deeplearning4j.eval.Evaluation
 import org.deeplearning4j.nn.api.OptimizationAlgorithm
@@ -13,6 +14,9 @@ import org.deeplearning4j.nn.graph.ComputationGraph
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
 import org.deeplearning4j.nn.weights.WeightInit
 import org.deeplearning4j.optimize.listeners.ScoreIterationListener
+import org.deeplearning4j.ui.api.UIServer
+import org.deeplearning4j.ui.stats.StatsListener
+import org.deeplearning4j.ui.storage.InMemoryStatsStorage
 import org.deeplearning4j.util.ModelSerializer
 import org.nd4j.linalg.activations.Activation
 import org.nd4j.linalg.dataset.api.iterator.MultiDataSetIterator
@@ -72,11 +76,12 @@ object Train {
       .nOut(out)
       .build()
 
-  private def dense(in: Int, out: Int): DenseLayer =
+  private def dense(in: Int, out: Int, dropOut: Boolean = true): DenseLayer =
     new DenseLayer.Builder()
       .nIn(in)
       .nOut(out)
       .activation(Activation.LEAKYRELU)
+      .dropOut(if (dropOut) 0.5 else 0.0)
       .build()
 
   private def lstm(nIn: Int, size: Int): GravesLSTM =
@@ -84,6 +89,7 @@ object Train {
       .nIn(nIn)
       .nOut(size)
       .activation(Activation.SOFTSIGN)
+      .dropOut(0.5)
       .build()
 
   private def batchNorm(in: Int, out: Int): BatchNormalization =
@@ -106,18 +112,23 @@ object Train {
     .updater(Updater.RMSPROP)
     .rmsDecay(0.95)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-    .iterations(10)
+    .iterations(1)
     .seed(42)
     .graphBuilder()
-    .addInputs("itemIn", "countryIn")
-    .setInputTypes(InputType.recurrent(itemTypeCount), InputType.recurrent(countryTypeCount))
-    .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
-    .addLayer("country", embedding(countryTypeCount, hiddenSize / 10), "countryIn")
-    .addLayer("lstm1", lstm(hiddenSize + (hiddenSize / 10), hiddenSize), "embed", "country")
-    .addLayer("lstm2", lstm(hiddenSize, hiddenSize), "lstm1")
-    .addLayer("dense", dense(hiddenSize * 2, hiddenSize), "lstm1", "lstm2")
+    .addInputs("itemIn", "countryIn", "monthIn", "weekdayIn")
+    .setInputTypes(
+      InputType.recurrent(itemTypeCount),
+      InputType.recurrent(countryTypeCount),
+      InputType.recurrent(12),
+      InputType.recurrent(7))
+    .addLayer("embed", embedding(itemTypeCount, itemTypeCount), "itemIn")
+    .addLayer("country", embedding(countryTypeCount, countryTypeCount), "countryIn")
+    .addLayer("month", dense(12, 12), "monthIn")
+    .addLayer("weekday", dense(7, 7), "weekdayIn")
+    .addLayer("lstm1", lstm(itemTypeCount + countryTypeCount + 12 + 7, hiddenSize * 2),  "embed", "country", "month", "weekday")
+    .addLayer("dense", dense(hiddenSize * 2, hiddenSize), "lstm1")
     .addLayer("bn", batchNorm(hiddenSize, hiddenSize), "dense")
-    .addLayer("labelOut", output(hiddenSize, itemTypeCount) , "bn")
+    .addLayer("labelOut", output(hiddenSize, itemTypeCount), "bn")
     .setOutputs("labelOut")
     .build()
 
@@ -160,21 +171,33 @@ object Train {
     val model = new ComputationGraph(conf)
     model.init()
 
-    model.setListeners(new ScoreIterationListener(1))
+    val uiServer = UIServer.getInstance()
+    val statsStorage = new InMemoryStatsStorage()
+    uiServer.attach(statsStorage)
+
+    model.setListeners(new ScoreIterationListener(1), new StatsListener(statsStorage, 1))
 
     for (i <- 0 until c.nEpochs) {
       log.info(s"Starting epoch $i of ${c.nEpochs}")
+      /*while (trainData.hasNext) {
+        val ds = trainData.next()
+
+        log.debug(s"Features: ${ds.getFeatures.mkString("\n")}")
+        log.debug(s"Labels: ${ds.getLabels.mkString("\n")}")
+
+        model.fit(ds)
+      }*/
       model.fit(trainData)
 
       log.info(s"Finished epoch $i")
       trainData.reset()
     }
 
-    
     val eval = evaluate(model, testData)
-    log.info(eval.stats())
+    log.info(eval.stats(true))
 
     ModelSerializer.writeModel(model, c.modelName, true)
+    Files.write(Paths.get(c.modelName + ".eval"), eval.stats().getBytes)
 
     log.info(s"Model saved to: ${c.modelName}")
   }

@@ -2,6 +2,8 @@ package com.yumusoft.lstmrecommender
 
 import java.io._
 import java.nio.file.{Files, Paths, StandardOpenOption}
+import java.text.SimpleDateFormat
+import java.util.{Calendar, GregorianCalendar}
 
 import com.yumusoft.lstmrecommender.Train.getClass
 import org.datavec.api.records.reader.impl.csv.CSVRecordReader
@@ -10,6 +12,7 @@ import org.slf4j.LoggerFactory
 import scopt.OptionParser
 
 import scala.collection.immutable.{HashMap, TreeSet}
+import scala.collection.JavaConverters._
 
 
 case class PrepareConfig(
@@ -52,8 +55,15 @@ object PrepareConfig {
 object Prepare {
   private val log = LoggerFactory.getLogger(getClass)
 
-  private val START = "<start>"
-  private val END = "<end>"
+  private val dateParser = new SimpleDateFormat("M/d/yyyy HH:mm")
+
+  def dateIds(dateStr: String): (Int, Int) = {
+    val cal = Calendar.getInstance()
+    val d = dateParser.parse(dateStr)
+    cal.setTime(d)
+
+    (cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_WEEK))
+  }
 
   def main(args: Array[String]): Unit = {
     PrepareConfig.parse(args) match {
@@ -66,90 +76,88 @@ object Prepare {
           val rr = new CSVRecordReader(1, ",")
           rr.initialize(new InputStreamInputSplit(new FileInputStream(config.input)))
 
-          var itemSet = new HashMap[String, Int]()
-          //itemSet += (START -> 0)
-          //itemSet += (END -> 0)
-          var nextItemId = 1
+          var itemCounts = new HashMap[String, Int]()
 
           var countrySet = new HashMap[String, Int]()
           var nextCountryId = 1
 
-          var sessionId: String = ""
-          var items: List[String] = Nil
           while (rr.hasNext) {
             val row = rr.next()
-            if (row.get(0).toString != sessionId) {
-              if (items.size > 1 && items.size <= config.length) {
-                for (item <- items.reverse) {
-                  if (!itemSet.contains(item)) {
-                    itemSet += (item -> nextItemId)
-                    nextItemId += 1
-                  }
+            if (row.size() == 8) {
+              val (itemDesc, country) = (row.get(2).toString, row.get(7).toString)
 
-
-                  val country = row.get(row.size() - 1).toString
-                  if (!countrySet.contains(country)) {
-                    countrySet += (country -> nextCountryId)
-                    nextCountryId += 1
-                  }
-                }
+              if (!countrySet.contains(country)) {
+                countrySet += (country -> nextCountryId)
+                nextCountryId += 1
               }
 
-              items = Nil
-              sessionId = row.get(0).toString
-            }
-
-            val item = row.get(2).toString.trim.replace(",", "").replace("\"", "").replace("'", "")
-            if (item.length >  0 && item.length < 100) {
-              items ::= item
+              val item = itemDesc.trim.replace(",", "").replace("\"", "").replace("'", "")
+              if (item.length > 0 && item.length < 100) {
+                if (itemCounts.contains(item)) {
+                  itemCounts += item -> (itemCounts(item) + 1)
+                } else {
+                  itemCounts += item -> 1
+                }
+              }
             }
           }
+
+          val itemSet = itemCounts
+            .toSeq
+            .filter { case (_, c) => c >= 100 && c < 1000}
+            .sortBy { case (_, c) => c }
+            .zipWithIndex
+            .map { case ((item, c), i) => (item, i) }
+            .toMap
 
           rr.reset()
           rr.initialize(new InputStreamInputSplit(new FileInputStream(config.input)))
 
           new File(config.outputDir + "/sessions/").mkdirs()
 
-          var rows: List[(String, String)] = Nil
-
+          var rows: List[(String, String, String)] = Nil
           var count = 0
+          var sessionId = ""
+
           while (rr.hasNext && count < config.count) {
             val row = rr.next()
-            if (row.get(0).toString != sessionId) {
-              if (rows.size > 1 && rows.size < config.length) {
-                count += 1
-                log.info(s"Writing session $count with ${rows.size} items.")
+            if (row.size() == 8) {
+              val Seq(currentSession, itemDesc, date, country) = Seq(0, 2, 4, 7).map(row.get(_).toString)
 
-                val rowIds = rows.reverse.map { case (i, c) => (itemSet(i), countrySet(c)) }
+              if (currentSession != sessionId) {
+                if (rows.size > 5 && rows.size < config.length) {
+                  count += 1
+                  log.info(s"Writing session $count with ${rows.size} items.")
 
-                val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
-                currentInputFile.createNewFile()
-                val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
-                currentLabelFile.createNewFile()
+                  val rowIds = rows.reverse.map { case (i, c, d) => (itemSet(i), countrySet(c), dateIds(d)) }
 
+                  val currentInputFile = new File(config.outputDir + "/sessions/Input_" + count + ".csv")
+                  currentInputFile.createNewFile()
+                  val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
+                  currentLabelFile.createNewFile()
 
-                val inputLines = rowIds.sliding(2).map { case List(a, b) => s"${a._1},${a._2}" }
-                val labelLines = rowIds.sliding(2).map { case List(a, b) => s"${b._1}" }
+                  val inputLines = rowIds.sliding(2).map { case List((i, c, (m, w)), _) => s"$i,$c,$m,$w" }
+                  val labelLines = rowIds.sliding(2).map { case List(_, (next, _, (_, _))) => s"$next" }
 
-                Files.write(
-                  Paths.get(currentInputFile.getAbsolutePath),
-                  inputLines.mkString("\n").getBytes()
-                )
+                  Files.write(
+                    Paths.get(currentInputFile.getAbsolutePath),
+                    inputLines.mkString("\n").getBytes()
+                  )
 
-                Files.write(
-                  Paths.get(currentLabelFile.getAbsolutePath),
-                  labelLines.mkString("\n").getBytes()
-                )
+                  Files.write(
+                    Paths.get(currentLabelFile.getAbsolutePath),
+                    labelLines.mkString("\n").getBytes()
+                  )
+                }
+
+                rows = Nil
+                sessionId = row.get(0).toString
               }
 
-              rows = Nil
-              sessionId = row.get(0).toString
-            }
-
-            val item = row.get(2).toString.trim.replace(",", "").replace("\"", "").replace("'", "")
-            val country = row.get(row.size() - 1).toString
-            if (item.length > 0 && item.length < 100) {
-              rows ::= (item, country)
+              val item = itemDesc.trim.replace(",", "").replace("\"", "").replace("'", "")
+              if (itemSet.contains(item)) {
+                rows ::= (item, country, date)
+              }
             }
           }
 
