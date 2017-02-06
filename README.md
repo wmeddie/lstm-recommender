@@ -9,7 +9,7 @@ on an e-commerce site.
 
 You can use sbt to train the model.
 
-    sbt ""run-main com.yumusoft.lstmrecommender.Train --input retail-small --output model.out --epoch 100 --hidden 10 --count 10""
+    sbt "run-main com.yumusoft.lstmrecommender.Train --input retail-small --output model.out --epoch 100 --hidden 10 --count 10"
 
 
 ## Repl
