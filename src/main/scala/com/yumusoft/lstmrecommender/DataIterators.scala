@@ -64,7 +64,7 @@ object DataIterators {
       .addInput("itemIn", 0, 0)
       .addInput("countryIn", 1, 1)
       .addInputOneHot("monthIn", 2, 12)
-      .addInputOneHot("weekdayIn", 3, 7)
+      .addInputOneHot("weekdayIn", 3, 8)
       .addOutputOneHot("labelOut", 0, numClasses)
       .sequenceAlignmentMode(RecordReaderMultiDataSetIterator.AlignmentMode.ALIGN_END)
       .build()

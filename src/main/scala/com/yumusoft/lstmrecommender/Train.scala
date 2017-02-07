@@ -80,8 +80,7 @@ object Train {
     new DenseLayer.Builder()
       .nIn(in)
       .nOut(out)
-      .activation(Activation.LEAKYRELU)
-      .dropOut(if (dropOut) 0.5 else 0.0)
+      .activation(Activation.RELU)
       .build()
 
   private def lstm(nIn: Int, size: Int): GravesLSTM =
@@ -89,7 +88,6 @@ object Train {
       .nIn(nIn)
       .nOut(size)
       .activation(Activation.SOFTSIGN)
-      .dropOut(0.5)
       .build()
 
   private def batchNorm(in: Int, out: Int): BatchNormalization =
@@ -120,16 +118,16 @@ object Train {
       InputType.recurrent(itemTypeCount),
       InputType.recurrent(countryTypeCount),
       InputType.recurrent(12),
-      InputType.recurrent(7))
+      InputType.recurrent(8))
     .addLayer("embed", embedding(itemTypeCount, hiddenSize), "itemIn")
     .addLayer("country", embedding(countryTypeCount, 10), "countryIn")
     .addLayer("month", dense(12, 12), "monthIn")
-    .addLayer("weekday", dense(7, 7), "weekdayIn")
+    .addLayer("weekday", dense(8, 8), "weekdayIn")
     .addLayer("bnEmbed", batchNorm(hiddenSize, hiddenSize), "embed")
     .addLayer("bnCountry", batchNorm(10, 10), "country")
     .addLayer("bnMonth", batchNorm(12, 12), "month")
-    .addLayer("bnWeekday", batchNorm(7, 7), "weekday")
-    .addLayer("encoder", lstm(hiddenSize + 10 + 12 + 7, hiddenSize),  "bnEmbed", "bnCountry", "bnMonth", "bnWeekday")
+    .addLayer("bnWeekday", batchNorm(8, 8), "weekday")
+    .addLayer("encoder", lstm(hiddenSize + 10 + 12 + 8, hiddenSize),  "bnEmbed", "bnCountry", "bnMonth", "bnWeekday")
     .addVertex("lastTimeStep", new LastTimeStepVertex("itemIn"), "encoder")
     .addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("itemIn"), "lastTimeStep")
     .addLayer("decoder", lstm(hiddenSize, hiddenSize), "duplicateTimeStep")

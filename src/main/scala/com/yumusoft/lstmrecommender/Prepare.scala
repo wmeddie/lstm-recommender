@@ -14,7 +14,6 @@ import scopt.OptionParser
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.collection.JavaConverters._
 
-
 case class PrepareConfig(
   input: File = null,
   outputDir: String = "",
@@ -136,12 +135,18 @@ object Prepare {
                   val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
                   currentLabelFile.createNewFile()
 
-                  val inputLines = rowIds.sliding(2).map { case List((i, c, (m, w)), _) => s"$i,$c,$m,$w" }
+                  val inputLines = rowIds
+                    .sliding(2)
+                    .map { case List((i, c, (m, w)), _) => s"$i,$c,$m,$w" }
+                  val paddingLines = rowIds
+                    .sliding(2)
+                    .map { case List((i, c, (m, w)), _) => s"0,$c,$m,$w" }
+
                   val labelLines = rowIds.sliding(2).map { case List(_, (next, _, (_, _))) => s"$next" }
 
                   Files.write(
                     Paths.get(currentInputFile.getAbsolutePath),
-                    inputLines.mkString("\n").getBytes()
+                    (inputLines.mkString("\n") + paddingLines.mkString("\n")).getBytes()
                   )
 
                   Files.write(
