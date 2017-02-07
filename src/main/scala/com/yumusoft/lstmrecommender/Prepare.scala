@@ -146,7 +146,7 @@ object Prepare {
 
                   Files.write(
                     Paths.get(currentInputFile.getAbsolutePath),
-                    (inputLines.mkString("\n") + paddingLines.mkString("\n")).getBytes()
+                    (inputLines.mkString("\n") + "\n" + paddingLines.mkString("\n")).getBytes()
                   )
 
                   Files.write(
