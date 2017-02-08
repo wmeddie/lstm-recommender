@@ -8,7 +8,7 @@ import org.deeplearning4j.nn.api.OptimizationAlgorithm
 import org.deeplearning4j.nn.api.layers.IOutputLayer
 import org.deeplearning4j.nn.conf.graph.rnn.{DuplicateToTimeSeriesVertex, LastTimeStepVertex}
 import org.deeplearning4j.nn.conf.inputs.InputType
-import org.deeplearning4j.nn.conf.{NeuralNetConfiguration, Updater}
+import org.deeplearning4j.nn.conf.{GradientNormalization, NeuralNetConfiguration, Updater}
 import org.deeplearning4j.nn.conf.layers._
 import org.deeplearning4j.nn.graph.ComputationGraph
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork
@@ -105,13 +105,15 @@ object Train {
       .build()
 
   private def net(itemTypeCount: Int, countryTypeCount: Int, hiddenSize: Int) = new NeuralNetConfiguration.Builder()
-    .weightInit(WeightInit.XAVIER)
-    .learningRate(0.01)
-    .updater(Updater.RMSPROP)
-    .rmsDecay(0.95)
+    .seed(42)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
     .iterations(1)
-    .seed(42)
+    .learningRate(0.1)
+    .weightInit(WeightInit.XAVIER)
+    .updater(Updater.NESTEROVS)
+    .momentum(0.9)
+    .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)
+    .gradientNormalizationThreshold(0.5)
     .graphBuilder()
     .addInputs("itemIn", "countryIn", "monthIn", "weekdayIn")
     .setInputTypes(
@@ -127,11 +129,9 @@ object Train {
     .addLayer("bnCountry", batchNorm(10, 10), "country")
     .addLayer("bnMonth", batchNorm(12, 12), "month")
     .addLayer("bnWeekday", batchNorm(8, 8), "weekday")
-    .addLayer("encoder", lstm(hiddenSize + 10 + 12 + 8, hiddenSize),  "bnEmbed", "bnCountry", "bnMonth", "bnWeekday")
-    .addVertex("lastTimeStep", new LastTimeStepVertex("itemIn"), "encoder")
-    .addVertex("duplicateTimeStep", new DuplicateToTimeSeriesVertex("itemIn"), "lastTimeStep")
-    .addLayer("decoder", lstm(hiddenSize, hiddenSize), "duplicateTimeStep")
-    .addLayer("dense", dense(hiddenSize, hiddenSize), "decoder")
+    .addLayer("lstm1", lstm(hiddenSize + 10 + 12 + 8, hiddenSize),  "bnEmbed", "bnCountry", "bnMonth", "bnWeekday")
+    .addLayer("lstm2", lstm(hiddenSize, hiddenSize), "lstm1")
+    .addLayer("dense", dense(hiddenSize, hiddenSize), "lstm2")
     .addLayer("bn", batchNorm(hiddenSize, hiddenSize), "dense")
     .addLayer("labelOut", output(hiddenSize, itemTypeCount), "bn")
     .setOutputs("labelOut")

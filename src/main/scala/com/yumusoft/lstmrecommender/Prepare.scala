@@ -1,18 +1,16 @@
 package com.yumusoft.lstmrecommender
 
 import java.io._
-import java.nio.file.{Files, Paths, StandardOpenOption}
+import java.nio.file.{Files, Paths}
 import java.text.SimpleDateFormat
-import java.util.{Calendar, GregorianCalendar}
+import java.util.Calendar
 
-import com.yumusoft.lstmrecommender.Train.getClass
 import org.datavec.api.records.reader.impl.csv.CSVRecordReader
 import org.datavec.api.split.InputStreamInputSplit
 import org.slf4j.LoggerFactory
 import scopt.OptionParser
 
-import scala.collection.immutable.{HashMap, TreeSet}
-import scala.collection.JavaConverters._
+import scala.collection.immutable.HashMap
 
 case class PrepareConfig(
   input: File = null,
@@ -135,18 +133,12 @@ object Prepare {
                   val currentLabelFile = new File(config.outputDir + "/sessions/Label_" + count + ".csv")
                   currentLabelFile.createNewFile()
 
-                  val inputLines = rowIds
-                    .sliding(2)
-                    .map { case List((i, c, (m, w)), _) => s"$i,$c,$m,$w" }
-                  val paddingLines = rowIds
-                    .sliding(2)
-                    .map { case List((i, c, (m, w)), _) => s"0,$c,$m,$w" }
-
+                  val inputLines = rowIds.sliding(2).map { case List((i, c, (m, w)), _) => s"$i,$c,$m,$w" }
                   val labelLines = rowIds.sliding(2).map { case List(_, (next, _, (_, _))) => s"$next" }
 
                   Files.write(
                     Paths.get(currentInputFile.getAbsolutePath),
-                    (inputLines.mkString("\n") + "\n" + paddingLines.mkString("\n")).getBytes()
+                    inputLines.mkString("\n").getBytes()
                   )
 
                   Files.write(
