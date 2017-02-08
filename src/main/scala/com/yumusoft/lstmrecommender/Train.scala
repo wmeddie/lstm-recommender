@@ -29,7 +29,8 @@ case class TrainConfig(
   modelName: String = "",
   nEpochs: Int = 1,
   hiddenSize: Int = 128,
-  count: Int = 100
+  count: Int = 100,
+  resume: Boolean = false
 )
 
 object TrainConfig {
@@ -60,6 +61,10 @@ object TrainConfig {
       .valueName("<count>")
       .action( (x, c) => c.copy(count = x) )
       .text("Number of examples to train on. 0.8 split")
+
+    opt[Boolean]('r', "resume")
+      .action( (x, c) => c.copy(resume = x) )
+      .text("Resume learning from previous saved model.")
   }
 
   def parse(args: Array[String]): Option[TrainConfig] = {
@@ -94,6 +99,7 @@ object Train {
     new BatchNormalization.Builder()
       .nIn(in)
       .nOut(out)
+      .activation(Activation.RELU)
       .build()
 
   private def output(nIn: Int, nOut: Int): RnnOutputLayer =
@@ -108,12 +114,12 @@ object Train {
     .seed(42)
     .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
     .iterations(1)
-    .learningRate(0.1)
+    .learningRate(0.001)
     .weightInit(WeightInit.XAVIER)
     .updater(Updater.NESTEROVS)
     .momentum(0.9)
     .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)
-    .gradientNormalizationThreshold(0.5)
+    .gradientNormalizationThreshold(1.0)
     .graphBuilder()
     .addInputs("itemIn", "countryIn", "monthIn", "weekdayIn")
     .setInputTypes(
@@ -172,9 +178,14 @@ object Train {
 
     log.info("Data Loaded")
 
-    val conf = net(numClasses, numCountries, c.hiddenSize)
-    val model = new ComputationGraph(conf)
-    model.init()
+    val model = if (c.resume) {
+      ModelSerializer.restoreComputationGraph(c.modelName, true)
+    } else {
+      val conf = net(numClasses, numCountries, c.hiddenSize)
+      val graph = new ComputationGraph(conf)
+      graph.init()
+      graph
+    }
 
     val uiServer = UIServer.getInstance()
     val statsStorage = new InMemoryStatsStorage()
